@@ -12,7 +12,7 @@ ps loss结构的流程图：
 
 该方法包含三个核心组件：（1）基于傅里叶的自适应补丁划分（Fourier-based Adaptive Patching）——对真实序列Y和预测序列Ŷ进行自适应分段，生成补丁序列；（2）补丁级结构损失（Patch-wise Structural Loss）——通过融合相关性损失（LCorr）、方差损失（LVar）和均值损失（LMean），衡量补丁间的局部相似度；（3）基于梯度的动态加权（Gradient-based Dynamic Weighting）——根据各损失组件的梯度幅度，动态调整其权重（α、β、γ），确保优化过程的平衡性。最终，PS损失（LPS）与均方误差（MSE）损失（LMSE）无缝融合，以提升预测精度。2论文公式与程序代码对应
 由于这个结构能够适用于目前出现的所有时间序列预测结构，所以在本次研究中我打算用itransformer模型接上ps loss来进行实验。
-# 2代码
+# 2、代码
 2.1傅里叶自适应划分
 <img width="280" height="35" alt="image" src="https://github.com/user-attachments/assets/70bde5bf-af2a-4795-9f15-2b9a372710c5" />
 
@@ -142,7 +142,7 @@ def gradient_based_dynamic_weighting(self, true, pred, corr_loss, var_loss, mean
     gamma = gamma * torch.mean(linear_sim*var_sim).detach()  #γ修正
 return aplha, beta, gamma
 
-# 3安装说明
+# 3、安装说明
 1.安装Pytorch和必要的依赖。
 pip install -r requirements.txt
 2.先配置无PS Loss的损失函数的模型初始参数
@@ -154,7 +154,7 @@ pip install -r requirements.txt
 "E:\anaconda\python.exe" run.py --is_training 1 --root_path ../datasets/ETT-small/ --data_path ETTh1.csv --model_id ETTh1_96_96_PS3 --model iTransformer --data ETTh1 --features M --seq_len 96 --pred_len 96 --e_layers 2 --enc_in 7 --dec_in 7 --c_out 7 --d_model 256 --d_ff 256 --learning_rate 0.0001 --train_epochs 10 --patience 3 --lradj type1 --use_ps_loss 1 --ps_lambda 3.0 --patch_len_threshold 24 --itr 1
 专门测试PS Loss的有效性。实验使用ETTh1电力变压器温度数据集进行多变量预测（M），以前96个时间步长（seq_len）预测未来96个时间步长（pred_len）。模型配置包含2层编码器（e_layers），隐藏维度（d_model）和前馈网络维度（d_ff）均为256，处理7个特征维度（enc_in/dec_in/c_out）。这次启用了PS Loss功能（use_ps_loss=1）并设置PS Loss权重（ps_lambda）为3.0，同时设置Patch长度阈值（patch_len_threshold）为24。训练使用0.0001的学习率（learning_rate）进行10个训练轮次（train_epochs），采用type1学习率调整策略（lradj）和早停机制（patience=3），实验迭代次数（itr）为1次。
 
-# 4运行结果说明
+# 4、运行结果说明
 分别运行上面两个.bat文件，模型开始训练。
 MSE：
 <img width="553" height="312" alt="image" src="https://github.com/user-attachments/assets/7ea811fe-7d79-4746-9747-4b4e961079a5" />
