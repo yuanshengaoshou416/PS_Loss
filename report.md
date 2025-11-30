@@ -2,7 +2,7 @@ Patch-wise Structural Loss for Time Series Forecasting
 原文链接https://arxiv.org/abs/2503.00877
 github链接https://github.com/Dilfiraa/PS_Loss
 
-1、论文总结
+# 1、论文总结
 问题：
 现在的时间序列预测模型主要依赖MSE损失函数，其过度关注局部数值精度从而忽略了序列全局结构的相似性，导致预测结果在风功率等复杂场景下出现形状失真、波动模式失准等突出问题。
 创新点：
@@ -12,6 +12,7 @@ ps loss结构的流程图：
 
 该方法包含三个核心组件：（1）基于傅里叶的自适应补丁划分（Fourier-based Adaptive Patching）——对真实序列Y和预测序列Ŷ进行自适应分段，生成补丁序列；（2）补丁级结构损失（Patch-wise Structural Loss）——通过融合相关性损失（LCorr）、方差损失（LVar）和均值损失（LMean），衡量补丁间的局部相似度；（3）基于梯度的动态加权（Gradient-based Dynamic Weighting）——根据各损失组件的梯度幅度，动态调整其权重（α、β、γ），确保优化过程的平衡性。最终，PS损失（LPS）与均方误差（MSE）损失（LMSE）无缝融合，以提升预测精度。2论文公式与程序代码对应
 由于这个结构能够适用于目前出现的所有时间序列预测结构，所以在本次研究中我打算用itransformer模型接上ps loss来进行实验。
+# 2代码
 2.1傅里叶自适应划分
 <img width="280" height="35" alt="image" src="https://github.com/user-attachments/assets/70bde5bf-af2a-4795-9f15-2b9a372710c5" />
 
@@ -19,7 +20,7 @@ ps loss结构的流程图：
 
 对应的代码：
 def fouriour_based_adaptive_patching(self, true, pred):
-# 对真实序列做FFT，提取频率特征
+对真实序列做FFT，提取频率特征
     true_fft = torch.fft.rfft(true, dim=1)  #使用FFT保留正频率
     frequency_list = torch.abs(true_fft).mean(0).mean(-1)  #计算各频率的平均幅值
     frequency_list[:1] = 0.0  #过滤直流分量（因为0频率无周期信息）
@@ -51,7 +52,7 @@ def patch_wise_structural_loss(self, true_patch, pred_patch):
     true_patch_std = torch.sqrt(true_patch_var)  #真实标准差σy
     pred_patch_std = torch.sqrt(pred_patch_var)  #预测标准差σhat(y)
     
-# 计算协方差 Cov(y,hat(y))
+计算协方差 Cov(y,hat(y))
     true_pred_patch_cov = torch.mean((true_patch - true_patch_mean) * (pred_patch - pred_patch_mean), dim=-1, keepdim=True)  
     
     # 线性相关性损失
@@ -70,10 +71,10 @@ Cov(y,ŷ)：真实序列与预测序列的协方差；σy、σŷ：真实序列�
 <img width="298" height="50" alt="image" src="https://github.com/user-attachments/assets/94a8a618-a66a-46a2-8258-de2bd466f797" />
 
 相关代码：
-# 方差损失：用softmax归一化后，通过KL散度计算分布差异
+方差损失：用softmax归一化后，通过KL散度计算分布差异
 true_patch_softmax = torch.softmax(true_patch, dim=-1)  #真实补丁归一化（转为概率分布）
 pred_patch_softmax = torch.log_softmax(pred_patch, dim=-1)  #预测补丁对数归一化
-# KL散度：衡量两个分布的距离（公式：LVar=KL(pred_dist||true_dist)）
+KL散度：衡量两个分布的距离（公式：LVar=KL(pred_dist||true_dist)）
 var_loss=self.kl_loss(pred_patch_softmax,true_patch_softmax).sum(dim=-1).mean()
 
 核心逻辑：softmax函数将补丁内的数值转为概率分布，可突出方差差异（方差大的序列，数值分布更分散）；KL散度值越小说明两个分布越接近，预测与真实序列的波动特性越一致。
@@ -86,7 +87,7 @@ var_loss=self.kl_loss(pred_patch_softmax,true_patch_softmax).sum(dim=-1).mean()
 μy、μŷ：真实补丁与预测补丁的均值
 
 相关代码：
-# 均值损失
+均值损失
 mean_loss = torch.abs(true_patch_mean - pred_patch_mean).mean()
 
 2.5三个结构损失之和
@@ -141,7 +142,7 @@ def gradient_based_dynamic_weighting(self, true, pred, corr_loss, var_loss, mean
     gamma = gamma * torch.mean(linear_sim*var_sim).detach()  #γ修正
 return aplha, beta, gamma
 
-3安装说明
+# 3安装说明
 1.安装Pytorch和必要的依赖。
 pip install -r requirements.txt
 2.先配置无PS Loss的损失函数的模型初始参数
@@ -153,7 +154,7 @@ pip install -r requirements.txt
 "E:\anaconda\python.exe" run.py --is_training 1 --root_path ../datasets/ETT-small/ --data_path ETTh1.csv --model_id ETTh1_96_96_PS3 --model iTransformer --data ETTh1 --features M --seq_len 96 --pred_len 96 --e_layers 2 --enc_in 7 --dec_in 7 --c_out 7 --d_model 256 --d_ff 256 --learning_rate 0.0001 --train_epochs 10 --patience 3 --lradj type1 --use_ps_loss 1 --ps_lambda 3.0 --patch_len_threshold 24 --itr 1
 专门测试PS Loss的有效性。实验使用ETTh1电力变压器温度数据集进行多变量预测（M），以前96个时间步长（seq_len）预测未来96个时间步长（pred_len）。模型配置包含2层编码器（e_layers），隐藏维度（d_model）和前馈网络维度（d_ff）均为256，处理7个特征维度（enc_in/dec_in/c_out）。这次启用了PS Loss功能（use_ps_loss=1）并设置PS Loss权重（ps_lambda）为3.0，同时设置Patch长度阈值（patch_len_threshold）为24。训练使用0.0001的学习率（learning_rate）进行10个训练轮次（train_epochs），采用type1学习率调整策略（lradj）和早停机制（patience=3），实验迭代次数（itr）为1次。
 
-4运行结果说明
+# 4运行结果说明
 分别运行上面两个.bat文件，模型开始训练。
 MSE：
 <img width="553" height="312" alt="image" src="https://github.com/user-attachments/assets/7ea811fe-7d79-4746-9747-4b4e961079a5" />
